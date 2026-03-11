@@ -1,3 +1,5 @@
+!pip install openpyxl
+
 import numpy as np
 import pandas as pd
 import os
@@ -7,6 +9,7 @@ from datetime import datetime
 from tqdm import tqdm
 import pickle
 from collections import Counter
+import openpyxl
 
 warnings.filterwarnings('ignore')
 
@@ -354,6 +357,54 @@ comparison_data = {
 }
 comparison_df = pd.DataFrame(comparison_data)
 print(comparison_df.to_string(index=False))
+# ==================== EXPORT ANALYTICS TO EXCEL ====================
+
+from openpyxl import load_workbook
+from openpyxl.chart import BarChart, Reference
+
+excel_path = "/content/results/model_results_dashboard.xlsx"
+
+# Save dataframe and confusion matrix
+with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+    
+    comparison_df.to_excel(writer, sheet_name="Model_Comparison", index=False)
+
+    cm_df = pd.DataFrame(cm)
+    cm_df.to_excel(writer, sheet_name="Confusion_Matrix", index=False)
+
+print("Excel analytics file created!")
+
+# Load workbook to add charts
+wb = load_workbook(excel_path)
+ws = wb["Model_Comparison"]
+
+# Accuracy chart
+accuracy_chart = BarChart()
+accuracy_chart.title = "Model Accuracy Comparison"
+accuracy_chart.y_axis.title = "Accuracy"
+
+data = Reference(ws, min_col=2, min_row=1, max_row=4)
+cats = Reference(ws, min_col=1, min_row=2, max_row=4)
+
+accuracy_chart.add_data(data, titles_from_data=True)
+accuracy_chart.set_categories(cats)
+
+ws.add_chart(accuracy_chart, "H2")
+
+# Metrics chart
+metric_chart = BarChart()
+metric_chart.title = "Precision Recall F1 Comparison"
+
+data2 = Reference(ws, min_col=3, min_row=1, max_col=5, max_row=4)
+
+metric_chart.add_data(data2, titles_from_data=True)
+metric_chart.set_categories(cats)
+
+ws.add_chart(metric_chart, "H20")
+
+wb.save(excel_path)
+
+print("Excel dashboard created!")
 print("="*60)
 
 best_model_name = comparison_df.loc[comparison_df['Accuracy'].idxmax(), 'Model']
@@ -516,4 +567,9 @@ print("RUNNING PREDICTIONS...")
 print("="*80)
 
 predict(audio_path)
+
 predict_multi_sound(audio_path)
+
+print("Results saved!")
+from google.colab import files
+files.download("/content/results/model_results_dashboard.xlsx")
